@@ -1,0 +1,41 @@
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.openai import ChatCompletionClient
+from langchain.embeddings import OpenAIEmbeddings
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT, INDEX_NAME, AZURE_OPENAI_KEY, GPT_MODEL
+
+# Initialize clients
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
+chat_client = ChatCompletionClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=AzureKeyCredential(AZURE_OPENAI_KEY))
+
+def search_relevant_documents(query, top_k=5):
+    embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+    query_embedding = embeddings_model.embed_query(query)
+
+    # Using semantic search with embeddings
+    results = search_client.search(
+        search_text="",  # Empty because we're using vector search
+        vector=query_embedding,
+        vector_fields="embedding",
+        top=top_k
+    )
+    
+    # Retrieve the document content
+    return [result["content"] for result in results]
+
+def generate_answer(query):
+    relevant_chunks = search_relevant_documents(query)
+    context = "\n".join(relevant_chunks)
+
+    # Formulate the prompt for GPT-4O
+    prompt = f"Answer the following HR-related question based on the context:\n{query}\n\nContext:\n{context}"
+
+    response = chat_client.get_chat_completions(
+        model=GPT_MODEL,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message["content"]
+
+# Example usage
+query = "How do I apply for paid time off?"
+print(generate_answer(query))
