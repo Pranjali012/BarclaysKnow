@@ -1,0 +1,16 @@
+from langchain.vectorstores import FAISS
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.document_loaders import DirectoryLoader
+from config import AZURE_OPENAI_KEY, EMBEDDING_MODEL
+
+# Initialize embeddings model
+embeddings = OpenAIEmbeddings(openai_api_key=AZURE_OPENAI_KEY, model=EMBEDDING_MODEL)
+vector_store = FAISS.from_documents(docs, embeddings)
+
+def chunk_and_embed_documents(documents):
+    """Chunk documents, embed them, and store in the vector DB."""
+    chunks = []
+    for doc in documents:
+        text_chunks = chunk_text(doc["content"])  # Use LangChain chunking
+        chunks.extend([embeddings.embed_text(chunk) for chunk in text_chunks])
+    vector_store.add_texts(text_chunks)
