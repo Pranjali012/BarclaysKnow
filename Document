@@ -1,0 +1,20 @@
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from config import AZURE_OPENAI_KEY
+
+# Initialize Document Analysis Client
+client = DocumentAnalysisClient(endpoint="YOUR_DOCUMENT_ANALYSIS_ENDPOINT", credential=AzureKeyCredential(AZURE_OPENAI_KEY))
+
+def extract_text_from_document(document_path):
+    """
+    Extract text from PDF, image or any other supported format.
+    """
+    with open(document_path, "rb") as f:
+        poller = client.begin_analyze_document("prebuilt-document", f)
+        result = poller.result()
+
+    extracted_text = ""
+    for page in result.pages:
+        extracted_text += page.content
+
+    return extracted_text
