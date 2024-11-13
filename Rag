@@ -1,0 +1,26 @@
+import openai
+from vector_db import chunk_and_embed_documents, vector_store
+from azure_services import analyze_document, index_documents
+from prompt_engineering import create_prompt
+from config import AZURE_OPENAI_KEY
+
+openai.api_key = AZURE_OPENAI_KEY
+
+def retrieve_docs_from_cognitive_search(query):
+    """Retrieve documents using Azure Cognitive Search."""
+    results = search_client.search(query)
+    return [result for result in results]
+
+def generate_response(query):
+    # Step 1: Retrieve documents
+    relevant_docs = retrieve_docs_from_cognitive_search(query)
+    context = "\n\n".join([doc['content'] for doc in relevant_docs])
+    
+    # Step 2: Create and send prompt with context
+    prompt = create_prompt(query, context)
+    response = openai.Completion.create(
+        engine="gpt-4",
+        prompt=prompt,
+        max_tokens=150,
+    )
+    return response.choices[0].text.strip()
