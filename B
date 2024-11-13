@@ -1,0 +1,57 @@
+# index_setup.py
+
+from azure.search.documents import SearchClient
+from azure.search.documents.indexes import SearchIndexClient
+from azure.search.documents.indexes.models import SearchIndex, SimpleField, SearchableField, VectorField, VectorSearchAlgorithmConfiguration
+from azure.core.credentials import AzureKeyCredential
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from document_extractor import extract_text_from_document
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT, INDEX_NAME
+
+# Initialize credentials and clients
+credential = AzureKeyCredential(AZURE_SEARCH_KEY)
+index_client = SearchIndexClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=credential)
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=credential)
+
+def create_index():
+    # Remove old index if exists
+    if index_client.get_index(INDEX_NAME):
+        index_client.delete_index(INDEX_NAME)
+    
+    # Create index with vector search enabled
+    index = SearchIndex(
+        name=INDEX_NAME,
+        fields=[
+            SimpleField(name="id", type="Edm.String", key=True),
+            SearchableField(name="content", type="Edm.String"),
+            VectorField(name="embedding", type="Collection(Edm.Single)", 
+                        dimensions=1536, vector_search_configuration="vectorConfig")
+        ],
+        vector_search=VectorSearchAlgorithmConfiguration(name="vectorConfig", algorithm="cosine")
+    )
+    index_client.create_index(index)
+
+def chunk_and_embed_documents(document_paths):
+    embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=20)
+
+    # Process each document
+    chunks = []
+    for doc_path in document_paths:
+        extracted_text = extract_text_from_document(doc_path)
+        for chunk in text_splitter.split_text(extracted_text):
+            embedding = embeddings_model.embed_query(chunk)
+            chunks.append({
+                "id": f"{doc_path}_{len(chunks)}",
+                "content": chunk,
+                "embedding": embedding
+            })
+    
+    # Upload chunks to Azure Cognitive Search
+    search_client.upload_documents(documents=chunks)
+
+# Example usage
+document_paths = ["path/to/hr_policy.pdf", "path/to/benefits_guide.pdf"]
+create_index()
+chunk_and_embed_documents(document_paths)
