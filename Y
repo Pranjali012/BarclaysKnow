@@ -1,0 +1,24 @@
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from config import AZURE_DOCUMENT_AI_KEY, AZURE_DOCUMENT_AI_ENDPOINT
+
+# Initialize DocumentAnalysisClient
+document_client = DocumentAnalysisClient(endpoint=AZURE_DOCUMENT_AI_ENDPOINT, credential=AzureKeyCredential(AZURE_DOCUMENT_AI_KEY))
+
+def process_document(file_path):
+    with open(file_path, "rb") as f:
+        poller = document_client.begin_analyze_document("prebuilt-document", f)
+    result = poller.result()
+
+    # Extracting the content and metadata from the document
+    document_content = ""
+    for page in result.pages:
+        for line in page.lines:
+            document_content += line.content + "\n"
+
+    # Return the extracted text
+    return document_content
+
+# Example usage
+document_content = process_document("sample_document.pdf")
+print(document_content)
