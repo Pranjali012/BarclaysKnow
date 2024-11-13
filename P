@@ -1,0 +1,23 @@
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT, INDEX_NAME
+
+# Initialize SearchClient
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
+
+def upload_chunks_to_search(chunks_and_embeddings):
+    documents = []
+    for i, chunk in enumerate(chunks_and_embeddings):
+        document = {
+            "id": f"chunk-{i}",
+            "content": chunk["content"],
+            "metadata": "document metadata here",  # Add any additional metadata if needed
+        }
+        documents.append(document)
+
+    # Upload documents to Azure Cognitive Search
+    search_client.upload_documents(documents)
+    print("Documents uploaded successfully.")
+
+# Example usage
+upload_chunks_to_search(chunks_and_embeddings)
