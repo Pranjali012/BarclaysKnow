@@ -1,0 +1,28 @@
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings
+from config import OPENAI_API_KEY
+
+# Initialize OpenAI Embeddings model
+embeddings_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+
+# Initialize text splitter
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+
+def chunk_and_embed(document_content):
+    # Split document content into chunks
+    chunks = text_splitter.split_text(document_content)
+
+    # Generate embeddings for each chunk
+    embeddings = []
+    for chunk in chunks:
+        embedding = embeddings_model.embed_query(chunk)
+        embeddings.append({
+            "content": chunk,
+            "embedding": embedding
+        })
+    return embeddings
+
+# Example usage
+document_content = "This is a sample document content extracted from Document AI..."
+chunks_and_embeddings = chunk_and_embed(document_content)
+print(chunks_and_embeddings[0])  # Prints the first chunk and its embedding
