@@ -1,0 +1,55 @@
+# backend/document_processor.py
+
+import re
+from transformers import GPT2TokenizerFast
+
+# Initialize a tokenizer to count tokens (using GPT-2 tokenizer as a proxy for token count)
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+
+def tokenize_text(text):
+    return len(tokenizer.encode(text))
+
+def paragraph_chunk(text, max_tokens=500):
+    """
+    Splits text into semantically coherent chunks by paragraphs.
+    Falls back to sentence-based splitting if a paragraph exceeds max_tokens.
+    """
+    paragraphs = text.split("\n\n")  # Assuming paragraphs are separated by double newlines
+    chunks = []
+
+    for para in paragraphs:
+        para = para.strip()
+        if para:
+            # Check token count for the paragraph
+            if tokenize_text(para) <= max_tokens:
+                chunks.append(para)
+            else:
+                # If the paragraph is too long, split further by sentence
+                chunks.extend(sentence_chunk(para, max_tokens))
+                
+    return chunks
+
+def sentence_chunk(paragraph, max_tokens=500):
+    """
+    Fallback to split a long paragraph into sentence chunks if it exceeds max_tokens.
+    """
+    sentences = re.split(r'(?<=[.!?])\s+', paragraph)  # Split by sentence-ending punctuation
+    chunk = ""
+    chunk_list = []
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if sentence:
+            # Check if adding this sentence will exceed the max_tokens
+            if tokenize_text(chunk + " " + sentence) <= max_tokens:
+                chunk += " " + sentence
+            else:
+                # If it does, add the current chunk to list and reset
+                chunk_list.append(chunk.strip())
+                chunk = sentence
+
+    # Add any remaining chunk
+    if chunk:
+        chunk_list.append(chunk.strip())
+
+    return chunk_list
