@@ -1,0 +1,11 @@
+from langchain.vectorstores import FAISS
+from langchain.embeddings import OpenAIEmbeddings
+from config import AZURE_OPENAI_KEY, EMBEDDING_MODEL
+
+# Initialize OpenAI embeddings
+embeddings = OpenAIEmbeddings(openai_api_key=AZURE_OPENAI_KEY, model=EMBEDDING_MODEL)
+vector_store = FAISS.from_texts([], embeddings)
+
+def add_text_to_vector_db(text):
+    embedding = embeddings.embed_query(text)
+    vector_store.add_texts([text])
