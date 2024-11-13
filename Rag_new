@@ -1,0 +1,27 @@
+from config import AZURE_OPENAI_KEY, AZURE_SEARCH_ENDPOINT
+from vector_db import search_relevant_documents
+from azure.ai.openai import ChatCompletionClient
+from azure.core.credentials import AzureKeyCredential
+
+# Initialize OpenAI client for generating responses
+client = ChatCompletionClient(
+    endpoint=AZURE_OPENAI_ENDPOINT, credential=AzureKeyCredential(AZURE_OPENAI_KEY)
+)
+
+def get_answer(query):
+    """
+    Use RAG to retrieve relevant documents and generate a response.
+    """
+    # Retrieve documents using Azure Cognitive Search
+    relevant_docs = search_relevant_documents(query)
+    
+    # Construct the prompt with the retrieved documents
+    context = "\n".join([doc["content"] for doc in relevant_docs])
+    prompt = f"Given the following HR documents, answer the query: {query}\n\n{context}"
+
+    # Generate response using the OpenAI model (Azure)
+    response = client.get_chat_completions(
+        model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message["content"]
