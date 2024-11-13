@@ -1,0 +1,70 @@
+# index_setup.py
+
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents.indexes import SearchIndexClient
+from azure.search.documents.indexes.models import (
+    SearchIndex,
+    SimpleField,
+    SearchableField,
+    SemanticField,
+    SearchField,
+)
+from azure.search.documents import SearchClient
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT, INDEX_NAME
+
+# Initialize credentials and clients
+credential = AzureKeyCredential(AZURE_SEARCH_KEY)
+index_client = SearchIndexClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=credential)
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=credential)
+
+# Define and create a semantic search index in Azure Cognitive Search
+def create_index():
+    # Remove old index if exists
+    try:
+        index_client.get_index(INDEX_NAME)
+        index_client.delete_index(INDEX_NAME)
+    except:
+        pass
+
+    # Create index with semantic search capabilities
+    index = SearchIndex(
+        name=INDEX_NAME,
+        fields=[
+            SimpleField(name="id", type="Edm.String", key=True),
+            SearchableField(name="content", type="Edm.String"),
+            SemanticField(name="embedding", type="Edm.String")
+        ],
+    )
+    
+    # Create the index
+    index_client.create_index(index)
+
+# Chunk documents and create embeddings using OpenAI Embeddings
+def chunk_and_embed_documents(documents):
+    embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
+
+    chunks = []
+    for doc_id, doc_content in documents.items():
+        for chunk in text_splitter.split_text(doc_content):
+            embedding = embeddings_model.embed_query(chunk)
+            # Store each chunk with its embedding
+            chunks.append({
+                "id": f"{doc_id}_{len(chunks)}",
+                "content": chunk,
+                "embedding": embedding
+            })
+    
+    # Upload the chunked documents to Azure Cognitive Search
+    search_client.upload_documents(documents=chunks)
+
+# Example usage
+documents = {
+    "doc1": "This is some content related to employee benefits...",
+    "doc2": "Another document containing HR-related content..."
+}
+
+create_index()  # Creates the index
+chunk_and_embed_documents(documents)  # Ingests documents
