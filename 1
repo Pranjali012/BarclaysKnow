@@ -1,0 +1,16 @@
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from langchain.document_loaders import DirectoryLoader
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT
+
+# Document processing
+def extract_text_from_pdf(file_path):
+    client = DocumentAnalysisClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
+    with open(file_path, "rb") as f:
+        poller = client.begin_analyze_document("prebuilt-layout", document=f)
+        result = poller.result()
+    
+    return " ".join([line.content for page in result.pages for line in page.lines])
+
+def chunk_text(text, max_length=500):
+    return [text[i:i+max_length] for i in range(0, len(text), max_length)]
