@@ -1,0 +1,23 @@
+# document_extractor.py
+
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from config import DOCUMENT_AI_ENDPOINT, DOCUMENT_AI_KEY
+
+# Initialize Document Analysis Client
+document_client = DocumentAnalysisClient(
+    endpoint=DOCUMENT_AI_ENDPOINT, credential=AzureKeyCredential(DOCUMENT_AI_KEY)
+)
+
+def extract_text_from_document(document_path):
+    # Open the document for reading (binary mode)
+    with open(document_path, "rb") as document:
+        poller = document_client.begin_analyze_document("prebuilt-document", document)
+        result = poller.result()
+    
+    # Extract text from the document
+    extracted_text = ""
+    for page in result.pages:
+        for line in page.lines:
+            extracted_text += line.content + " "
+    return extracted_text
