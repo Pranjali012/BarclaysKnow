@@ -1,0 +1,44 @@
+# chatbot.py
+
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from langchain.embeddings import OpenAIEmbeddings
+from azure.ai.openai import ChatCompletionClient
+from config import AZURE_SEARCH_KEY, AZURE_SEARCH_ENDPOINT, AZURE_OPENAI_KEY, INDEX_NAME, GPT_MODEL
+
+# Initialize clients
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
+chat_client = ChatCompletionClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=AzureKeyCredential(AZURE_OPENAI_KEY))
+
+# Function to search relevant documents using semantic search
+def search_relevant_documents(query, top_k=5):
+    embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+    query_embedding = embeddings_model.embed_query(query)
+
+    # Use the semantic search capabilities of Azure Cognitive Search
+    results = search_client.search(
+        search_text="",  # Empty because we are using vector search
+        vector=query_embedding,
+        vector_fields="embedding",
+        top=top_k
+    )
+
+    return [result["content"] for result in results]
+
+# Function to generate an answer using GPT-4O
+def generate_answer(query):
+    relevant_chunks = search_relevant_documents(query)
+    context = "\n".join(relevant_chunks)
+    
+    # Formulate prompt
+    prompt = f"Based on the following HR document excerpts, answer the query: {query}\n\nContext:\n{context}"
+    
+    response = chat_client.get_chat_completions(
+        model=GPT_MODEL,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message["content"]
+
+# Example usage
+query = "How can I apply for health insurance?"
+print(generate_answer(query))
